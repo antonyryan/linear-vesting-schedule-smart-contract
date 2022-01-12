@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "hardhat/console.sol";
 import "./interfaces/IERC721URI.sol";
 
-contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
+contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
     enum WrapStatus {
         FREE,
         REQUEST_PENDING,
@@ -34,13 +36,13 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
     uint256 internal tokenIdTracker;
 
     /// @dev token id => wrap
-    mapping(uint256 => Wrap) internal wraps;
+    mapping(uint256 => Wrap) public wraps;
 
     /// @dev owner address => amount
-    mapping(address => uint256) ownerBalance;
+    mapping(address => uint256) public ownerBalance;
 
     /// @dev service fee balance
-    uint256 serviceFeeBalance;
+    uint256 public serviceFeeBalance;
 
     /// @dev service fee percentage
     uint256 public serviceFeeRatio;
@@ -106,7 +108,6 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 dailyRate
     ) external payable {
         address owner = IERC721URI(nftAddr).ownerOf(tokenId);
-
         require(
             msg.sender == owner,
             "wNFT: caller is not the owner of the NFT"
@@ -134,7 +135,6 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
 
         // escrow the nft
         wrap.nftAddr.safeTransferFrom(owner, address(this), tokenId);
-
         // mint wNFT
         _safeMint(address(this), newTokenId);
 
@@ -147,6 +147,7 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
      */
     function unregister(uint256 tokenId) external onlyValidToken(tokenId) {
         Wrap storage wrap = wraps[tokenId];
+        address nftAddr = address(wrap.nftAddr);
 
         require(
             tokenStatus(tokenId) == WrapStatus.FREE,
@@ -160,9 +161,10 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
         _burn(tokenId);
         tokenId = wrap.tokenId;
         delete wraps[tokenId];
-        wrap.nftAddr.safeTransferFrom(address(this), msg.sender, tokenId);
 
-        emit Unregistered(msg.sender, address(wrap.nftAddr), tokenId);
+        wrap.nftAddr.safeTransferFrom(address(this), msg.sender, tokenId);
+        
+        emit Unregistered(msg.sender, nftAddr, tokenId);
     }
 
     /**
@@ -336,6 +338,23 @@ contract wNFT is ERC721Enumerable, Ownable, ReentrancyGuard {
             require(success);
 
             emit ServiceFeeBalanceWithdrawn(recipient, amount);
+        }
+    }
+
+    /**
+     * @dev {IERC721Receiver-onERC721Received}
+     *      This function ensures wNFT can mint tokens to itself, or be an owner of another NFT
+     */
+    function onERC721Received(
+        address operator,
+        address from,
+        uint256,
+        bytes calldata
+    ) external override view returns (bytes4) {
+        if (operator == address(this) || from == address(0)) {
+            return IERC721Receiver.onERC721Received.selector;
+        } else {
+            return 0x00;
         }
     }
 }
