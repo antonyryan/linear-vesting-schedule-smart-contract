@@ -183,7 +183,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             return WrapStatus.FREE;
         } else if (wrap.rentStarted == 0) {
             return WrapStatus.REQUEST_PENDING;
-        } else if (wrap.rentStarted + wrap.rentalPeriod > block.timestamp) {
+        } else if (wrap.rentStarted + wrap.rentalPeriod < block.timestamp) {
             return WrapStatus.FREE;
         } else {
             return WrapStatus.RENTED;
@@ -193,14 +193,15 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
     /**
      * @dev Sends a rent request with upfront
      * @param tokenId wrap token id
-     * @param rentalPeriod rental period in days
+     * @param rentalPeriodInDays rental period in days
      */
-    function requestRent(uint256 tokenId, uint256 rentalPeriod)
+    function requestRent(uint256 tokenId, uint256 rentalPeriodInDays)
         external
         payable
         onlyValidToken(tokenId)
     {
         Wrap storage wrap = wraps[tokenId];
+        uint256 rentalPeriod = rentalPeriodInDays * 1 days;
 
         require(tokenStatus(tokenId) == WrapStatus.FREE, "wNFT: token in rent");
         require(
@@ -212,7 +213,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             "wNFT: out of maximal rental period"
         );
         require(
-            msg.value == rentalPeriod * wrap.dailyRate,
+            msg.value == rentalPeriodInDays * wrap.dailyRate,
             "wNFT: invalid upfront amount"
         );
 
