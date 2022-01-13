@@ -183,7 +183,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             return WrapStatus.FREE;
         } else if (wrap.rentStarted == 0) {
             return WrapStatus.REQUEST_PENDING;
-        } else if (wrap.rentStarted + wrap.rentalPeriod < block.timestamp) {
+        } else if (wrap.rentStarted + wrap.rentalPeriod * 1 days < block.timestamp) {
             return WrapStatus.FREE;
         } else {
             return WrapStatus.RENTED;
@@ -201,15 +201,14 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         onlyValidToken(tokenId)
     {
         Wrap storage wrap = wraps[tokenId];
-        uint256 rentalPeriod = rentalPeriodInDays * 1 days;
 
         require(tokenStatus(tokenId) == WrapStatus.FREE, "wNFT: token in rent");
         require(
-            wrap.minRentalPeriod < rentalPeriod,
+            wrap.minRentalPeriod < rentalPeriodInDays,
             "wNFT: out of minimal rental period"
         );
         require(
-            wrap.maxRentalPeriod > rentalPeriod,
+            wrap.maxRentalPeriod > rentalPeriodInDays,
             "wNFT: out of maximal rental period"
         );
         require(
@@ -217,7 +216,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             "wNFT: invalid upfront amount"
         );
 
-        wrap.rentalPeriod = rentalPeriod;
+        wrap.rentalPeriod = rentalPeriodInDays;
         wrap.renter = msg.sender;
 
         emit RentRequested(msg.sender, wrap.owner, tokenId, wrap);
@@ -279,7 +278,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
     {
         require(
             tokenStatus(tokenId) == WrapStatus.RENTED,
-            "wNFT: only violated token"
+            "wNFT: only rented token"
         );
 
         Wrap storage wrap = wraps[tokenId];

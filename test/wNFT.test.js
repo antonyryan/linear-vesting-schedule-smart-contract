@@ -1,7 +1,6 @@
 const { expect } = require('chai')
-const { ethers, BigNumber } = require("hardhat")
-
-const serviceFeeRatio = 5
+const { ethers } = require("hardhat")
+const serviceFeeRatio = 10
 
 describe('wNFT', () => {
   before(async () => {
@@ -24,8 +23,8 @@ describe('wNFT', () => {
   it('register function fails', async () => {
     const [bob] = this.users
     const tokenId = 0
-    const minRentalPeriod = 2 * 3600 * 24
-    const maxRentalPeriod = 10 * 3600 * 24
+    const minRentalPeriod = 2
+    const maxRentalPeriod = 10
     const dailyRate = 20
 
     await expect(this.wnft.connect(bob).register(
@@ -73,8 +72,8 @@ describe('wNFT', () => {
     const tokenId = 0
     const tokenId1 = 1
     const tokenId2 = 2
-    const minRentalPeriod = 2 * 3600 * 24
-    const maxRentalPeriod = 10 * 3600 * 24
+    const minRentalPeriod = 2
+    const maxRentalPeriod = 10
     const dailyRate = 20
 
     await this.mockNFT.approve(this.wnft.address, tokenId);
@@ -117,10 +116,9 @@ describe('wNFT', () => {
     const [renter] = this.users
     const tokenId = 1
     const tokenId2 = 2
-    const rentalPeriodInDays = 5
-    const requestPeriod = rentalPeriodInDays * 3600 * 24
-    const minRentalPeriod = 2 * 3600 * 24
-    const maxRentalPeriod = 10 * 3600 * 24
+    const requestPeriod = 6
+    const minRentalPeriod = 2
+    const maxRentalPeriod = 10
     const rentStarted = 0
     const dailyRate = 20
 
@@ -128,8 +126,8 @@ describe('wNFT', () => {
 
     await expect(this.wnft.connect(renter).requestRent(
       tokenId,
-      rentalPeriodInDays,
-      { value: 100 }
+      requestPeriod,
+      { value: requestPeriod * dailyRate }
     )).to.emit(this.wnft, 'RentRequested')
       .withArgs(
         renter.address,
@@ -150,8 +148,8 @@ describe('wNFT', () => {
 
     await expect(this.wnft.connect(renter).requestRent(
       tokenId2,
-      rentalPeriodInDays,
-      { value: 100 }
+      requestPeriod,
+      { value: requestPeriod * dailyRate }
     )).to.emit(this.wnft, 'RentRequested')
       .withArgs(
         renter.address,
@@ -176,11 +174,11 @@ describe('wNFT', () => {
   it('requestRent function fails', async () => {
     const tokenId = 0
     const tokenId1 = 1
-    const rentalPeriodInDays = 5
+    const requestPeriod = 6
 
     await expect(this.wnft.connect(this.nftOwner).requestRent(
       tokenId1,
-      rentalPeriodInDays,
+      requestPeriod,
       { value: 100 }
     )).to.revertedWith('wNFT: token in rent')
 
@@ -198,7 +196,7 @@ describe('wNFT', () => {
 
     await expect(this.wnft.connect(this.nftOwner).requestRent(
       tokenId,
-      rentalPeriodInDays,
+      requestPeriod,
       { value: 50 }
     )).to.revertedWith('wNFT: invalid upfront amount')
   })
@@ -222,10 +220,9 @@ describe('wNFT', () => {
   it('approveRentRequest function succeeds', async () => {
     const tokenId1 = 1
     const tokenId2 = 2
-    const rentalPeriodInDays = 5
-    const requestPeriod = rentalPeriodInDays * 3600 * 24
-    const minRentalPeriod = 2 * 3600 * 24
-    const maxRentalPeriod = 10 * 3600 * 24
+    const requestPeriod = 6
+    const minRentalPeriod = 2
+    const maxRentalPeriod = 10
     const rentStarted = 0
     const dailyRate = 20
     const renter = '0x0000000000000000000000000000000000000000'
@@ -281,6 +278,86 @@ describe('wNFT', () => {
       tokenId,
     )).to.emit(this.wnft, 'Unregistered')
       .withArgs(this.nftOwner.address, this.mockNFT.address, tokenId)
+  })
+
+  it('setServiceFeeRatio function fails', async () => {
+    const percentage = 200
+
+    await expect(this.wnft.connect(this.nftOwner).setServiceFeeRatio(
+      percentage
+    )).to.revertedWith('wNFT: invalid service fee')
+  })
+
+  it('setServiceFeeRatio function succeeds', async () => {
+    const percentage = serviceFeeRatio
+
+    await expect(this.wnft.connect(this.nftOwner).setServiceFeeRatio(
+      percentage
+    )).to.emit(this.wnft, 'ServiceFeeRatioSet')
+      .withArgs(percentage)
+  })
+
+  it('completeRent function fails', async () => {
+    const tokenId1 = 1 // free
+    const tokenId2 = 2 // rented
+
+    await expect(this.wnft.connect(this.nftOwner).completeRent(
+      tokenId1
+    )).to.revertedWith('wNFT: only rented token')
+  })
+
+  it('completeRent function succeeds', async () => {
+    const tokenId2 = 2
+    const renter = '0x0000000000000000000000000000000000000000'
+
+    const wrap = await this.wnft.wraps(tokenId2)
+
+    await expect(this.wnft.connect(this.nftOwner).completeRent(
+      tokenId2
+    )).to.emit(this.wnft, 'RentEnded')
+      .withArgs(
+        wrap.renter,
+        wrap.owner,
+        tokenId2,
+        [
+          wrap[0],
+          renter,
+          wrap[2],
+          wrap[3],
+          wrap[4],
+          wrap[5],
+          wrap[6],
+          wrap[7],
+          wrap[8]
+        ]
+      )
+
+    const ownerBalance = await this.wnft.ownerBalance(wrap[2])
+    const serviceFeeBalance = await this.wnft.serviceFeeBalance()
+    const wrapStatus = await this.wnft.tokenStatus(tokenId2)
+
+    // console.log(ownerBalance, serviceFeeBalance.toNumber(), wrapStatus)
+  })
+
+  it('withdrawOwnerBalance function succeeds', async () => {
+    const tokenId2 = 2
+    const wrap = await this.wnft.wraps(tokenId2)
+    const ownerBalance = await this.wnft.ownerBalance(wrap[tokenId2])
+
+    await expect(this.wnft.connect(this.nftOwner).withdrawOwnerBalance(
+      wrap[2],
+    )).to.emit(this.wnft, 'OwnerBalanceWithdrawn')
+      .withArgs(wrap[2], ownerBalance)
+  })
+
+  it('withdrawServiceFeeBalance function succeeds', async () => {
+    const [bob] = this.users
+    const serviceFeeBalance = (await this.wnft.serviceFeeBalance()).toNumber()
+
+    await expect(this.wnft.connect(this.nftOwner).withdrawServiceFeeBalance(
+      bob.address,
+    )).to.emit(this.wnft, 'ServiceFeeBalanceWithdrawn')
+      .withArgs(bob.address, serviceFeeBalance)
   })
 
 })
