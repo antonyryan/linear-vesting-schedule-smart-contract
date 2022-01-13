@@ -107,12 +107,13 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 maxRentalPeriod,
         uint256 dailyRate
     ) external payable {
+        require(nftAddr != address(this), "wNFT: cannot register wNFT");
+        
         address owner = IERC721URI(nftAddr).ownerOf(tokenId);
         require(
             msg.sender == owner,
             "wNFT: caller is not the owner of the NFT"
         );
-        require(nftAddr != address(this), "wNFT: cannot register wNFT");
         require(minRentalPeriod > 0, "wNFT: zero min rental period");
         require(
             maxRentalPeriod > minRentalPeriod,
@@ -160,9 +161,9 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
 
         _burn(tokenId);
         tokenId = wrap.tokenId;
-        delete wraps[tokenId];
 
         wrap.nftAddr.safeTransferFrom(address(this), msg.sender, tokenId);
+        delete wraps[tokenId];
         
         emit Unregistered(msg.sender, nftAddr, tokenId);
     }
@@ -204,11 +205,11 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         require(tokenStatus(tokenId) == WrapStatus.FREE, "wNFT: token in rent");
         require(
             wrap.minRentalPeriod < rentalPeriod,
-            "wNFT: out of rental period"
+            "wNFT: out of minimal rental period"
         );
         require(
             wrap.maxRentalPeriod > rentalPeriod,
-            "wNFT: out of rental period"
+            "wNFT: out of maximal rental period"
         );
         require(
             msg.value == rentalPeriod * wrap.dailyRate,
