@@ -109,7 +109,6 @@ describe('wNFT', () => {
     )).to.emit(this.wnft, 'Registered')
       .withArgs(this.nftOwner.address, this.mockNFT.address, tokenId2)
 
-    const wrap = await this.wnft.wraps(0);
   })
 
   it('requestRent function succeeds', async () => {
@@ -257,6 +256,17 @@ describe('wNFT', () => {
       )
   })
 
+  it('wNFT is not transferable', async () => {
+    const [renter, john] = this.users
+    const tokenId2 = 2
+
+    await expect(this.wnft.connect(renter).transferFrom(
+      renter.address,
+      john.address,
+      tokenId2
+    )).to.revertedWith("wNFT: can't transfer")
+  })
+
   it('unregister function fails', async () => {
     const tokenId = 0
     const tokenId2 = 2
@@ -359,6 +369,4 @@ describe('wNFT', () => {
     )).to.emit(this.wnft, 'ServiceFeeBalanceWithdrawn')
       .withArgs(bob.address, serviceFeeBalance)
   })
-
 })
-

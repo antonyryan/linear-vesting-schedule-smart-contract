@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
 import "./interfaces/IERC721URI.sol";
 
 contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
@@ -251,7 +250,9 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             address renter = wrap.renter;
             wrap.renter = address(0);
 
-            payable(renter).call{value: wrap.rentalPeriod * wrap.dailyRate}("");
+            bool success;
+            (success, ) = payable(renter).call{value: wrap.rentalPeriod * wrap.dailyRate}("");
+            require(success);
             emit RentDenied(wrap.renter, msg.sender, tokenId, wrap);
         }
     }
