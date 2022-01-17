@@ -11,7 +11,8 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
     enum WrapStatus {
         FREE,
         REQUEST_PENDING,
-        RENTED
+        RENTED,
+        RENTAL_OVER
     }
 
     /// @dev keep original NFT data
@@ -183,7 +184,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         } else if (wrap.rentStarted == 0) {
             return WrapStatus.REQUEST_PENDING;
         } else if (wrap.rentStarted + wrap.rentalPeriod * 1 days < block.timestamp) {
-            return WrapStatus.FREE;
+            return WrapStatus.RENTAL_OVER;
         } else {
             return WrapStatus.RENTED;
         }
@@ -278,8 +279,8 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         nonReentrant
     {
         require(
-            tokenStatus(tokenId) == WrapStatus.RENTED,
-            "wNFT: only rented token"
+            tokenStatus(tokenId) == WrapStatus.RENTAL_OVER,
+            "wNFT: only rent-overed token"
         );
 
         Wrap storage wrap = wraps[tokenId];

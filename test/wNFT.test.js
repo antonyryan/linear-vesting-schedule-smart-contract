@@ -5,7 +5,8 @@ const serviceFeeRatio = 10
 const tokenStatus = Object.freeze({
   FREE: 0,
   PENDING: 1,
-  RENT: 2
+  RENT: 2,
+  RENTAL_OVER: 3
 })
 
 describe('wNFT', () => {
@@ -344,7 +345,7 @@ describe('wNFT', () => {
 
     await expect(this.wnft.connect(this.nftOwner).completeRent(
       tokenId1
-    )).to.revertedWith('wNFT: only rented token')
+    )).to.revertedWith('wNFT: only rent-overed token')
   })
 
   it('completeRent function succeeds', async () => {
@@ -353,9 +354,12 @@ describe('wNFT', () => {
 
     const wrap = await this.wnft.wraps(tokenId2)
 
+    await network.provider.send("evm_increaseTime", [864000])
+    await network.provider.send("evm_mine")
+
     expect(
       (await this.wnft.tokenStatus(tokenId2))
-    ).to.equal(tokenStatus.RENT)
+    ).to.equal(tokenStatus.RENTAL_OVER)
 
     expect(
       (await this.wnft.ownerBalance(wrap[tokenId2])).toNumber()
