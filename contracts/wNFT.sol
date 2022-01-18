@@ -92,6 +92,8 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         _;
     }
 
+    receive() external payable { }
+
     /**
      * @dev Registers token and mint wNFT to the token owner
      * @param nftAddr token address
@@ -106,9 +108,9 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         uint256 minRentalPeriod,
         uint256 maxRentalPeriod,
         uint256 dailyRate
-    ) external payable {
+    ) external payable nonReentrant {
         require(nftAddr != address(this), "wNFT: cannot register wNFT");
-        
+
         address owner = IERC721URI(nftAddr).ownerOf(tokenId);
         require(
             msg.sender == owner,
@@ -146,7 +148,11 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
      * @dev Unregisters wrap and send tokenb back to the owner
      * @param tokenId wrap token id
      */
-    function unregister(uint256 tokenId) external onlyValidToken(tokenId) {
+    function unregister(uint256 tokenId)
+        external
+        onlyValidToken(tokenId)
+        nonReentrant
+    {
         Wrap storage wrap = wraps[tokenId];
         address nftAddr = address(wrap.nftAddr);
 
@@ -164,7 +170,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
 
         wrap.nftAddr.safeTransferFrom(address(this), msg.sender, tokenId);
         delete wraps[tokenId];
-        
+
         emit Unregistered(msg.sender, nftAddr, tokenId);
     }
 
@@ -183,7 +189,9 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             return WrapStatus.FREE;
         } else if (wrap.rentStarted == 0) {
             return WrapStatus.REQUEST_PENDING;
-        } else if (wrap.rentStarted + wrap.rentalPeriod * 1 days < block.timestamp) {
+        } else if (
+            wrap.rentStarted + wrap.rentalPeriod * 1 days < block.timestamp
+        ) {
             return WrapStatus.RENTAL_OVER;
         } else {
             return WrapStatus.RENTED;
@@ -230,6 +238,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
     function approveRentRequest(uint256 tokenId, bool approve)
         external
         onlyValidToken(tokenId)
+        nonReentrant
     {
         Wrap storage wrap = wraps[tokenId];
 
@@ -252,7 +261,9 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
             wrap.renter = address(0);
 
             bool success;
-            (success, ) = payable(renter).call{value: wrap.rentalPeriod * wrap.dailyRate}("");
+            (success, ) = payable(renter).call{
+                value: wrap.rentalPeriod * wrap.dailyRate
+            }("");
             require(success);
             emit RentDenied(wrap.renter, msg.sender, tokenId, wrap);
         }
@@ -353,7 +364,7 @@ contract wNFT is IERC721Receiver, ERC721Enumerable, Ownable, ReentrancyGuard {
         address from,
         uint256,
         bytes calldata
-    ) external override view returns (bytes4) {
+    ) external view override returns (bytes4) {
         if (operator == address(this) || from == address(0)) {
             return IERC721Receiver.onERC721Received.selector;
         } else {

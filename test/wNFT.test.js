@@ -243,7 +243,7 @@ describe('wNFT', () => {
     const maxRentalPeriod = 10
     const rentStarted = 0
     const dailyRate = 20
-    const renter = '0x0000000000000000000000000000000000000000'
+    const renter = ethers.constants.AddressZero
 
     expect(
       (await this.wnft.tokenStatus(tokenId2))
